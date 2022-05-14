@@ -48,7 +48,8 @@ func MaskKingAttacks(square uint8) uint64 {
 }
 
 // MaskBishopAttacks returns a mask bitboard for bishop attack squares.
-// Squared on the board's edges are not included in the mask bitboard.
+//
+// Squares on the board's edges are not included in the mask bitboard.
 func MaskBishopAttacks(square uint8) uint64 {
 	//computing the rank and file of the square.
 	tr := square / 8
@@ -90,7 +91,8 @@ func MaskBishopAttacks(square uint8) uint64 {
 }
 
 // MaskRookAttacks returns a mask bitboard for rook attack sqaures.
-// Sqaures on the board's edges are not included in the mask bitboard.
+//
+// Squares on the board's edges are not included.
 func MaskRookAttacks(square uint8) uint64 {
 	// computing rank and file from sqaure,
 	tr := square / 8
@@ -118,6 +120,115 @@ func MaskRookAttacks(square uint8) uint64 {
 	left := uint64(0)
 	for file := tf - 1; file > 0; file-- {
 		left = SetBit(left, tr*8+file)
+	}
+
+	// ORing all the calculated bitboards to get the final bitboard.
+	return down | up | right | left
+}
+
+// GenerateBishopAttacks returns a bitboard of possible bishop attacks from
+// a given square, while taking into account other pieces on the block bitboard.
+//
+// Squares on the edge of the board are included.
+func GenerateBishopAttacks(square uint8, block uint64) uint64 {
+	// Note: when we use x < 255 to know when we underflow
+
+	//computing the rank and file of the square.
+	tr := square / 8
+	tf := square % 8
+
+	// going from the square down on the main diagonal.
+	// there is no underflow in this case.
+	main_down := uint64(0)
+	for rank, file := tr+1, tf+1; rank < 8 && file < 8; rank, file = rank+1, file+1 {
+		main_down = SetBit(main_down, rank*8+file)
+		if (GetBit(block, rank*8+file)) == 1 {
+			break
+		}
+	}
+
+	// going from the square up on the anti-diagonal.
+	// there is no underflow in this case.
+	anti_up := uint64(0)
+	for rank, file := tr-1, tf+1; rank < 255 && file < 8; rank, file = rank-1, file+1 {
+		anti_up = SetBit(anti_up, rank*8+file)
+		if (GetBit(block, rank*8+file)) == 1 {
+			break
+		}
+	}
+
+	// going from the square down on the anti-diagonal.
+	// checking if target file is not zero to prevent underflow.
+	anti_down := uint64(0)
+	if tf != 0 {
+		for rank, file := tr+1, tf-1; rank < 8 && file < 255; rank, file = rank+1, file-1 {
+			anti_down = SetBit(anti_down, rank*8+file)
+			if (GetBit(block, rank*8+file)) == 1 {
+				break
+			}
+		}
+	}
+
+	// going from the square up on the main diagonal.
+	// checking if target file and target rank are not zero to prevent underflow.
+	main_up := uint64(0)
+	if tr != 0 && tf != 0 {
+		for rank, file := tr-1, tf-1; rank < 255 && file < 255; rank, file = rank-1, file-1 {
+			main_up = SetBit(main_up, rank*8+file)
+			if (GetBit(block, rank*8+file)) == 1 {
+				break
+			}
+		}
+	}
+
+	return main_down | main_up | anti_down | anti_up
+}
+
+// GenerateRookAttacks returns a bitboard of possible rook attacks from
+// a given square, while taking into account other pieces on the block bitboard.
+//
+// Squares on the edge of the board are included.
+func GenerateRookAttacks(square uint8, block uint64) uint64 {
+	// Note: we use x < 255 as bound on loops to address underflow issues.
+
+	// computing rank and file from sqaure,
+	tr := square / 8
+	tf := square % 8
+
+	// calculating the mask bitboard for downward moves.
+	down := uint64(0)
+	for rank := tr + 1; rank < 8; rank++ {
+		down = SetBit(down, rank*8+tf)
+		if (GetBit(block, rank*8+tf)) == 1 {
+			break
+		}
+	}
+
+	// calculating the mask bitboard for upward moves.
+	up := uint64(0)
+	for rank := tr - 1; rank < 255; rank-- {
+		up = SetBit(up, rank*8+tf)
+		if (GetBit(block, rank*8+tf)) == 1 {
+			break
+		}
+	}
+
+	// calculating the mask bitboard for rightward moves.
+	right := uint64(0)
+	for file := tf + 1; file < 8; file++ {
+		right = SetBit(right, tr*8+file)
+		if (GetBit(block, tr*8+file)) == 1 {
+			break
+		}
+	}
+
+	// calculating the mask bitboard for leftward moves.
+	left := uint64(0)
+	for file := tf - 1; file < 255; file-- {
+		left = SetBit(left, tr*8+file)
+		if (GetBit(block, tr*8+file)) == 1 {
+			break
+		}
 	}
 
 	// ORing all the calculated bitboards to get the final bitboard.
